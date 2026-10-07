@@ -851,9 +851,13 @@ hyperlink in table output, resolving the link target in this order:
    markdown `[text](https://...)` target or a bare `https://` URL.
 3. Otherwise, the title is rendered plain.
 
+Set `--set-property href=false` to opt a task out of hyperlinking entirely,
+including the body fallback.
+
 `http://` targets, in either the `href` property or the body, are never
 linked. This follows `--no-color`/`NO_COLOR`: disabling color also disables
-hyperlinks, and has no effect on `--json` or `--compact` output.
+hyperlinks, and has no effect on `--json` or `--compact` output. Only the
+title text itself is clickable; column padding is never part of the link.
 
 ### Selected task properties
 

@@ -186,6 +186,26 @@ func TestTaskTableHrefOffByDefault(t *testing.T) {
 	}
 }
 
+func TestTaskTableHrefExcludesTrailingPadding(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{ID: 1, Title: "Short", Status: "backlog", Priority: "medium", Created: now, Updated: now}
+	setHref(t, tk, `"https://example.com/explicit"`)
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	// The link terminator must immediately follow the title text; any padding
+	// spaces belong after it, outside the clickable span.
+	wantLink := "\x1b]8;;https://example.com/explicit\x07Short\x1b]8;;\x07"
+	if !strings.Contains(out, wantLink) {
+		t.Errorf("expected hyperlink span to end right after the title text, got:\n%q", out)
+	}
+}
+
 func TestTaskTableHrefUsesExplicitPropertyOverBody(t *testing.T) {
 	disableColorForTest(t)
 	hyperlinksEnabled = true
@@ -231,6 +251,29 @@ func TestTaskTableHrefRejectsNonHTTPSProperty(t *testing.T) {
 	wantLink := "\x1b]8;;https://example.com/body-link\x07"
 	if !strings.Contains(out, wantLink) {
 		t.Errorf("expected fallback to body link when href property is not https, got:\n%q", out)
+	}
+}
+
+func TestTaskTableHrefFalsePropertyDisablesLinking(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{
+		ID: 1, Title: "Test task", Status: "backlog", Priority: "medium",
+		Body: "See https://example.com/body-link for details.", Created: now, Updated: now,
+	}
+	setHref(t, tk, "false")
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	if strings.Contains(out, "\x1b]8;;") {
+		t.Errorf("href: false should opt the task out of linking, including the body fallback, got:\n%q", out)
+	}
+	if !strings.Contains(out, "Test task") {
+		t.Errorf("TaskTable output missing task title:\n%s", out)
 	}
 }
 

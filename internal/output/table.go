@@ -23,11 +23,17 @@ var firstHTTPSLinkPattern = regexp.MustCompile(`\[[^\]]*\]\((https://[^\s()<>]+)
 
 // taskHref resolves the hyperlink target for a task's title: an explicit
 // https:// "href" property wins, otherwise the first https:// link found in
-// the body, otherwise none.
+// the body, otherwise none. An explicit href: false opts the task out of
+// hyperlinking entirely, skipping the body fallback.
 func taskHref(t *task.Task) string {
-	if scalar, state := t.PropertyScalar("href"); state == task.PropertySupported && scalar.Kind() == property.String {
-		if raw, err := strconv.Unquote(scalar.JSONLiteral()); err == nil && isSafeHTTPSURL(raw) {
-			return raw
+	if scalar, state := t.PropertyScalar("href"); state == task.PropertySupported {
+		if scalar.Kind() == property.Boolean && scalar.JSONLiteral() == "false" {
+			return ""
+		}
+		if scalar.Kind() == property.String {
+			if raw, err := strconv.Unquote(scalar.JSONLiteral()); err == nil && isSafeHTTPSURL(raw) {
+				return raw
+			}
 		}
 	}
 	m := firstHTTPSLinkPattern.FindStringSubmatch(t.Body)
@@ -55,9 +61,10 @@ func isSafeHTTPSURL(s string) bool {
 	return true
 }
 
-// ansiHyperlink wraps already-rendered, already-padded text in an OSC-8
-// terminal hyperlink escape sequence. Call this last, after any width-based
-// padding, since the escape bytes are not printable width.
+// ansiHyperlink wraps text in an OSC-8 terminal hyperlink escape sequence.
+// Call this before width-based padding, so the padding spaces land outside
+// the link and only the title text itself is clickable; lipgloss.Width
+// correctly measures through the escape bytes either way.
 func ansiHyperlink(url, text string) string {
 	return "\x1b]8;;" + url + "\x07" + text + "\x1b]8;;\x07"
 }
@@ -163,12 +170,12 @@ func tableDataRow(t *task.Task, w tableColumnWidths, opts TaskViewOptions) []str
 	if len(title) > maxTitle {
 		title = title[:maxTitle-3] + "..."
 	}
-	titleCell := padRight(title, w.title)
 	if opts.Href && hyperlinksEnabled {
 		if href := taskHref(t); href != "" {
-			titleCell = ansiHyperlink(href, titleCell)
+			title = ansiHyperlink(href, title)
 		}
 	}
+	titleCell := padRight(title, w.title)
 
 	cells := []string{
 		fmt.Sprintf("%-*d", w.id, t.ID),

@@ -527,6 +527,24 @@ func TestListHrefFlag(t *testing.T) {
 	}
 }
 
+func TestListHrefFalsePropertyOptsOut(t *testing.T) {
+	kanbanDir := initBoard(t)
+	mustCreateTask(t, kanbanDir, "Opted out task",
+		"--body", "See https://example.com/body-link for details.",
+		"--set-property", "href=false")
+
+	r := runKanban(t, kanbanDir, "--table", "list", "--href")
+	if r.exitCode != 0 {
+		t.Fatalf("list --href failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if strings.Contains(r.stdout, "\x1b]8;;") {
+		t.Errorf("href=false should opt the task out of linking, including the body fallback, got:\n%q", r.stdout)
+	}
+	if !strings.Contains(r.stdout, "Opted out task") {
+		t.Error("list --href output should still contain the task title")
+	}
+}
+
 func TestListHrefEnvVar(t *testing.T) {
 	kanbanDir := initBoard(t)
 	mustCreateTask(t, kanbanDir, "Explicit href task", "--set-property", `href="https://example.com/explicit"`)
