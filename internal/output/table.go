@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -11,8 +12,55 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/antopolskiy/kanban-md/internal/board"
+	"github.com/antopolskiy/kanban-md/internal/property"
 	"github.com/antopolskiy/kanban-md/internal/task"
 )
+
+// firstHTTPSLinkPattern finds the earliest https:// link in a task body,
+// preferring a markdown [text](url) target when one wraps it. http:// is
+// intentionally never matched or promoted.
+var firstHTTPSLinkPattern = regexp.MustCompile(`\[[^\]]*\]\((https://[^\s()<>]+)\)|(https://[^\s<>"'()\x00-\x1f]+)`)
+
+// taskHref resolves the hyperlink target for a task's title: an explicit
+// https:// "href" property wins, otherwise the first https:// link found in
+// the body, otherwise none.
+func taskHref(t *task.Task) string {
+	if scalar, state := t.PropertyScalar("href"); state == task.PropertySupported && scalar.Kind() == property.String {
+		if raw, err := strconv.Unquote(scalar.JSONLiteral()); err == nil && isSafeHTTPSURL(raw) {
+			return raw
+		}
+	}
+	m := firstHTTPSLinkPattern.FindStringSubmatch(t.Body)
+	if m == nil {
+		return ""
+	}
+	if m[1] != "" {
+		return m[1]
+	}
+	return m[2]
+}
+
+// isSafeHTTPSURL requires an https:// scheme and rejects terminal control
+// characters, since this value can originate from untrusted frontmatter and
+// is about to be embedded in a raw OSC-8 escape sequence.
+func isSafeHTTPSURL(s string) bool {
+	if !strings.HasPrefix(s, "https://") {
+		return false
+	}
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
+// ansiHyperlink wraps already-rendered, already-padded text in an OSC-8
+// terminal hyperlink escape sequence. Call this last, after any width-based
+// padding, since the escape bytes are not printable width.
+func ansiHyperlink(url, text string) string {
+	return "\x1b]8;;" + url + "\x07" + text + "\x1b]8;;\x07"
+}
 
 var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("244"))
@@ -40,6 +88,10 @@ var (
 
 	tagStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("110"))
 	claimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("44")).Bold(true)
+
+	// hyperlinksEnabled gates OSC-8 title hyperlinks alongside color; both
+	// are terminal styling that should disappear together under --no-color.
+	hyperlinksEnabled = true
 )
 
 // DisableColor strips all styling from table output.
@@ -50,6 +102,7 @@ func DisableColor() {
 	priorityStyles = map[string]lipgloss.Style{}
 	tagStyle = lipgloss.NewStyle()
 	claimStyle = lipgloss.NewStyle()
+	hyperlinksEnabled = false
 }
 
 // TaskTable renders a list of tasks as a formatted table.
@@ -62,6 +115,95 @@ func TaskTableWithProperties(w io.Writer, tasks []*task.Task, keys []string) {
 	TaskTableWithOptions(w, tasks, TaskViewOptions{PropertyKeys: keys})
 }
 
+// tableColumnWidths holds the computed fixed-column widths shared by the
+// header and every row.
+type tableColumnWidths struct {
+	id, status, priority, title, claim, tags, due int
+}
+
+// computeTableColumnWidths sizes each fixed column to its widest value,
+// capping title and tags to keep rows readable.
+func computeTableColumnWidths(tasks []*task.Task) tableColumnWidths {
+	const pad = 2
+	widths := tableColumnWidths{id: 4, status: 8, priority: 10, title: 5, claim: 9, tags: 6, due: 12} //nolint:mnd // default column widths
+	for _, t := range tasks {
+		widths.id = max(widths.id, len(strconv.Itoa(t.ID))+pad)
+		widths.status = max(widths.status, len(t.Status)+pad)
+		widths.priority = max(widths.priority, len(t.Priority)+pad)
+		widths.title = max(widths.title, min(len(t.Title)+pad, 50)) //nolint:mnd // max title column width
+		widths.claim = max(widths.claim, len(claimDisplay(t))+pad)
+		widths.tags = max(widths.tags, min(len(strings.Join(t.Tags, ","))+pad, 30)) //nolint:mnd // max tags column width
+	}
+	return widths
+}
+
+// tableHeaderRow builds the header line, honoring hidden columns.
+func tableHeaderRow(w tableColumnWidths, opts TaskViewOptions) []string {
+	cells := []string{
+		fmt.Sprintf("%-*s", w.id, "ID"),
+		fmt.Sprintf("%-*s", w.status, "STATUS"),
+		fmt.Sprintf("%-*s", w.priority, "PRIORITY"),
+		fmt.Sprintf("%-*s", w.title, "TITLE"),
+	}
+	if !opts.HideClaimed {
+		cells = append(cells, fmt.Sprintf("%-*s", w.claim, "CLAIMED"))
+	}
+	cells = append(cells, fmt.Sprintf("%-*s", w.tags, "TAGS"))
+	if !opts.HideDue {
+		cells = append(cells, fmt.Sprintf("%-*s", w.due, "DUE"))
+	}
+	return cells
+}
+
+// tableDataRow builds one task's row cells, honoring hidden columns and
+// title hyperlinking.
+func tableDataRow(t *task.Task, w tableColumnWidths, opts TaskViewOptions) []string {
+	title := t.Title
+	const maxTitle = 48
+	if len(title) > maxTitle {
+		title = title[:maxTitle-3] + "..."
+	}
+	titleCell := padRight(title, w.title)
+	if opts.Href && hyperlinksEnabled {
+		if href := taskHref(t); href != "" {
+			titleCell = ansiHyperlink(href, titleCell)
+		}
+	}
+
+	cells := []string{
+		fmt.Sprintf("%-*d", w.id, t.ID),
+		padRight(styledValue(t.Status, statusStyles), w.status),
+		padRight(styledValue(t.Priority, priorityStyles), w.priority),
+		titleCell,
+	}
+	if !opts.HideClaimed {
+		claim := claimDisplay(t)
+		if claim == "" {
+			claim = dimStyle.Render("--")
+		} else {
+			claim = claimStyle.Render(claim)
+		}
+		cells = append(cells, padRight(claim, w.claim))
+	}
+	tags := strings.Join(t.Tags, ",")
+	if tags == "" {
+		tags = dimStyle.Render("--")
+	} else {
+		tags = tagStyle.Render(tags)
+	}
+	cells = append(cells, padRight(tags, w.tags))
+	if !opts.HideDue {
+		due := "--"
+		if t.Due != nil {
+			due = t.Due.String()
+		} else {
+			due = dimStyle.Render(due)
+		}
+		cells = append(cells, padRight(due, w.due))
+	}
+	return cells
+}
+
 // TaskTableWithOptions renders a list of tasks as a formatted table, honoring
 // selected properties and column visibility.
 func TaskTableWithOptions(w io.Writer, tasks []*task.Task, opts TaskViewOptions) {
@@ -70,80 +212,15 @@ func TaskTableWithOptions(w io.Writer, tasks []*task.Task, opts TaskViewOptions)
 		return
 	}
 	keys := opts.PropertyKeys
+	widths := computeTableColumnWidths(tasks)
 
-	// Calculate column widths.
-	const pad = 2
-	idW, statusW, prioW, titleW, claimW, tagsW, dueW := 4, 8, 10, 5, 9, 6, 12
-	for _, t := range tasks {
-		idW = max(idW, len(strconv.Itoa(t.ID))+pad)
-		statusW = max(statusW, len(t.Status)+pad)
-		prioW = max(prioW, len(t.Priority)+pad)
-		titleW = max(titleW, min(len(t.Title)+pad, 50)) //nolint:mnd // max title column width
-		claimW = max(claimW, len(claimDisplay(t))+pad)
-		tagsW = max(tagsW, min(len(strings.Join(t.Tags, ","))+pad, 30)) //nolint:mnd // max tags column width
-	}
-
-	// Print header.
 	propertyWidths := tablePropertyWidths(tasks, keys)
-	headerCells := []string{
-		fmt.Sprintf("%-*s", idW, "ID"),
-		fmt.Sprintf("%-*s", statusW, "STATUS"),
-		fmt.Sprintf("%-*s", prioW, "PRIORITY"),
-		fmt.Sprintf("%-*s", titleW, "TITLE"),
-	}
-	if !opts.HideClaimed {
-		headerCells = append(headerCells, fmt.Sprintf("%-*s", claimW, "CLAIMED"))
-	}
-	headerCells = append(headerCells, fmt.Sprintf("%-*s", tagsW, "TAGS"))
-	if !opts.HideDue {
-		headerCells = append(headerCells, fmt.Sprintf("%-*s", dueW, "DUE"))
-	}
-	header := strings.Join(headerCells, " ")
+	header := strings.Join(tableHeaderRow(widths, opts), " ")
 	header += tablePropertySuffix(keys, propertyWidths)
 	fmt.Fprintln(w, headerStyle.Render(strings.TrimRight(header, " ")))
 
-	// Print rows.
 	for _, t := range tasks {
-		title := t.Title
-		const maxTitle = 48
-		if len(title) > maxTitle {
-			title = title[:maxTitle-3] + "..."
-		}
-		tags := strings.Join(t.Tags, ",")
-		if tags == "" {
-			tags = dimStyle.Render("--")
-		} else {
-			tags = tagStyle.Render(tags)
-		}
-		due := "--"
-		if t.Due != nil {
-			due = t.Due.String()
-		} else {
-			due = dimStyle.Render(due)
-		}
-		due = padRight(due, dueW)
-
-		rowCells := []string{
-			fmt.Sprintf("%-*d", idW, t.ID),
-			padRight(styledValue(t.Status, statusStyles), statusW),
-			padRight(styledValue(t.Priority, priorityStyles), prioW),
-			padRight(title, titleW),
-		}
-		if !opts.HideClaimed {
-			claim := claimDisplay(t)
-			if claim == "" {
-				claim = dimStyle.Render("--")
-			} else {
-				claim = claimStyle.Render(claim)
-			}
-			rowCells = append(rowCells, padRight(claim, claimW))
-		}
-		rowCells = append(rowCells, padRight(tags, tagsW))
-		if !opts.HideDue {
-			rowCells = append(rowCells, due)
-		}
-
-		row := strings.Join(rowCells, " ")
+		row := strings.Join(tableDataRow(t, widths, opts), " ")
 		row += tablePropertySuffix(tablePropertyCells(t, keys), propertyWidths)
 		fmt.Fprintln(w, strings.TrimRight(row, " "))
 	}

@@ -22,6 +22,10 @@ type TaskViewOptions struct {
 	// HideDue omits the DUE column from table output. It has no effect on
 	// compact or JSON output.
 	HideDue bool
+	// Href renders TITLE as an OSC-8 terminal hyperlink in table output when
+	// a link target can be resolved (see taskHref). It has no effect on
+	// compact or JSON output.
+	Href bool
 }
 
 const (

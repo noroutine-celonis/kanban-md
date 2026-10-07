@@ -10,8 +10,21 @@ import (
 
 	"github.com/antopolskiy/kanban-md/internal/board"
 	"github.com/antopolskiy/kanban-md/internal/date"
+	"github.com/antopolskiy/kanban-md/internal/property"
 	"github.com/antopolskiy/kanban-md/internal/task"
 )
+
+// setHref sets the task's "href" property to the given quoted-string literal.
+func setHref(t *testing.T, tk *task.Task, rawLiteral string) {
+	t.Helper()
+	value, err := property.ParseLiteral(rawLiteral)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tk.SetPropertyScalar("href", value); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // disableColorForTest calls DisableColor and registers a cleanup that
 // restores all package-level styles to their default values.
@@ -37,6 +50,7 @@ func disableColorForTest(t *testing.T) {
 		}
 		tagStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("110"))
 		claimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("44")).Bold(true)
+		hyperlinksEnabled = true
 	})
 }
 
@@ -154,6 +168,166 @@ func TestTaskTableWithOptionsHidesBothClaimedAndDueColumns(t *testing.T) {
 	}
 	if !strings.Contains(output, "Test task") {
 		t.Errorf("TaskTable output missing task title:\n%s", output)
+	}
+}
+
+func TestTaskTableHrefOffByDefault(t *testing.T) {
+	disableColorForTest(t)
+
+	now := time.Now()
+	tk := &task.Task{ID: 1, Title: "Test task", Status: "backlog", Priority: "medium", Created: now, Updated: now}
+	setHref(t, tk, `"https://example.com/explicit"`)
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{})
+
+	if strings.Contains(buf.String(), "\x1b]8;;") {
+		t.Errorf("TaskTable should not emit OSC-8 hyperlinks when Href is false:\n%q", buf.String())
+	}
+}
+
+func TestTaskTableHrefUsesExplicitPropertyOverBody(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{
+		ID: 1, Title: "Test task", Status: "backlog", Priority: "medium",
+		Body: "See https://example.com/body-link for details.", Created: now, Updated: now,
+	}
+	setHref(t, tk, `"https://example.com/explicit"`)
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	wantLink := "\x1b]8;;https://example.com/explicit\x07"
+	if !strings.Contains(out, wantLink) {
+		t.Errorf("expected hyperlink to explicit href property, got:\n%q", out)
+	}
+	if strings.Contains(out, "body-link") {
+		t.Errorf("explicit href property should take precedence over body link:\n%q", out)
+	}
+}
+
+func TestTaskTableHrefRejectsNonHTTPSProperty(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{
+		ID: 1, Title: "Test task", Status: "backlog", Priority: "medium",
+		Body: "See https://example.com/body-link for details.", Created: now, Updated: now,
+	}
+	setHref(t, tk, `"http://example.com/insecure"`)
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	if strings.Contains(out, "insecure") {
+		t.Errorf("http:// href property should never be used:\n%q", out)
+	}
+	wantLink := "\x1b]8;;https://example.com/body-link\x07"
+	if !strings.Contains(out, wantLink) {
+		t.Errorf("expected fallback to body link when href property is not https, got:\n%q", out)
+	}
+}
+
+func TestTaskTableHrefFallsBackToFirstBodyURL(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{
+		ID: 1, Title: "Test task", Status: "backlog", Priority: "medium",
+		Body: "First see https://example.com/first and then https://example.com/second.",
+		Created: now, Updated: now,
+	}
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	wantLink := "\x1b]8;;https://example.com/first\x07"
+	if !strings.Contains(out, wantLink) {
+		t.Errorf("expected hyperlink to first body URL, got:\n%q", out)
+	}
+	if strings.Contains(out, "https://example.com/second\x07") {
+		t.Errorf("expected only the first body URL to become a hyperlink:\n%q", out)
+	}
+}
+
+func TestTaskTableHrefPrefersMarkdownLinkTarget(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{
+		ID: 1, Title: "Test task", Status: "backlog", Priority: "medium",
+		Body:    "See the [docs](https://example.com/docs) for details.",
+		Created: now, Updated: now,
+	}
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	wantLink := "\x1b]8;;https://example.com/docs\x07"
+	if !strings.Contains(out, wantLink) {
+		t.Errorf("expected hyperlink to markdown link target, got:\n%q", out)
+	}
+}
+
+func TestTaskTableHrefIgnoresHTTPBodyLinks(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{
+		ID: 1, Title: "Test task", Status: "backlog", Priority: "medium",
+		Body: "Insecure: http://example.com/insecure", Created: now, Updated: now,
+	}
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	if strings.Contains(buf.String(), "\x1b]8;;") {
+		t.Errorf("http:// body links should never become hyperlinks:\n%q", buf.String())
+	}
+}
+
+func TestTaskTableHrefNoneWhenNoLinkFound(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk := &task.Task{ID: 1, Title: "Test task", Status: "backlog", Priority: "medium", Created: now, Updated: now}
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	if strings.Contains(out, "\x1b]8;;") {
+		t.Errorf("no hyperlink should be emitted without a property or body link:\n%q", out)
+	}
+	if !strings.Contains(out, "Test task") {
+		t.Errorf("TaskTable output missing task title:\n%s", out)
+	}
+}
+
+func TestTaskTableHrefDisabledByDisableColor(t *testing.T) {
+	disableColorForTest(t)
+
+	now := time.Now()
+	tk := &task.Task{ID: 1, Title: "Test task", Status: "backlog", Priority: "medium", Created: now, Updated: now}
+	setHref(t, tk, `"https://example.com/explicit"`)
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
+
+	if strings.Contains(buf.String(), "\x1b]8;;") {
+		t.Errorf("DisableColor should also disable OSC-8 hyperlinks:\n%q", buf.String())
 	}
 }
 

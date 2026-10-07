@@ -334,6 +334,7 @@ kanban-md list [FLAGS]
 | `--group-by` | | Group counts by assignee, tag, class, priority, status, or `property:KEY` |
 | `--hide-claimed-column` | false | Hide the CLAIMED column in table output (no effect on `--json` or `--compact`); defaults to true if `KANBAN_HIDE_CLAIMED_COLUMN` is set |
 | `--hide-due-column` | false | Hide the DUE column in table output (no effect on `--json` or `--compact`); defaults to true if `KANBAN_HIDE_DUE_COLUMN` is set |
+| `--href` | false | Render TITLE as an OSC-8 terminal hyperlink in table output (no effect on `--json` or `--compact`); defaults to true if `KANBAN_HREF` is set |
 | `--sort` | id | Sort by: id, title, status, priority, created, updated, due |
 | `-r`, `--reverse` | false | Reverse sort order |
 | `-n`, `--limit` | 0 | Max results (0 = unlimited) |
@@ -838,6 +839,21 @@ defaults:
 
 Priority order runs from lowest to highest. `list --sort priority` shows the
 highest configured priority first by default; use `--reverse` for lowest first.
+
+### Hyperlinked titles
+
+`list --href` (or `KANBAN_HREF`) renders TITLE as a clickable OSC-8 terminal
+hyperlink in table output, resolving the link target in this order:
+
+1. An explicit `https://` `href` property, set with
+   `--set-property 'href="https://example.com"'`.
+2. Otherwise, the first `https://` link found in the task body — either a
+   markdown `[text](https://...)` target or a bare `https://` URL.
+3. Otherwise, the title is rendered plain.
+
+`http://` targets, in either the `href` property or the body, are never
+linked. This follows `--no-color`/`NO_COLOR`: disabling color also disables
+hyperlinks, and has no effect on `--json` or `--compact` output.
 
 ### Selected task properties
 

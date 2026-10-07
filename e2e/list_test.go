@@ -504,3 +504,46 @@ func TestListHideClaimedAndDueColumnsEnvVars(t *testing.T) {
 		t.Errorf("explicit flags should override env vars and show both columns, got:\n%s", r.stdout)
 	}
 }
+
+func TestListHrefFlag(t *testing.T) {
+	kanbanDir := initBoard(t)
+	mustCreateTask(t, kanbanDir, "Table task")
+	mustCreateTask(t, kanbanDir, "Explicit href task", "--set-property", `href="https://example.com/explicit"`)
+
+	r := runKanban(t, kanbanDir, "--table", "list")
+	if r.exitCode != 0 {
+		t.Fatalf("list failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if strings.Contains(r.stdout, "\x1b]8;;") {
+		t.Error("list table output should not contain OSC-8 hyperlinks without --href")
+	}
+
+	r = runKanban(t, kanbanDir, "--table", "list", "--href")
+	if r.exitCode != 0 {
+		t.Fatalf("list --href failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "\x1b]8;;https://example.com/explicit\x07") {
+		t.Errorf("list --href output should hyperlink the task with an explicit href property, got:\n%q", r.stdout)
+	}
+}
+
+func TestListHrefEnvVar(t *testing.T) {
+	kanbanDir := initBoard(t)
+	mustCreateTask(t, kanbanDir, "Explicit href task", "--set-property", `href="https://example.com/explicit"`)
+
+	r := runKanbanEnv(t, kanbanDir, []string{"KANBAN_HREF=1"}, "--table", "list")
+	if r.exitCode != 0 {
+		t.Fatalf("env-gated list failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "\x1b]8;;https://example.com/explicit\x07") {
+		t.Errorf("KANBAN_HREF should enable hyperlinks by default, got:\n%q", r.stdout)
+	}
+
+	r = runKanbanEnv(t, kanbanDir, []string{"KANBAN_HREF=1"}, "--table", "list", "--href=false")
+	if r.exitCode != 0 {
+		t.Fatalf("env-gated list with explicit override failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if strings.Contains(r.stdout, "\x1b]8;;") {
+		t.Errorf("explicit --href=false should override KANBAN_HREF, got:\n%q", r.stdout)
+	}
+}
