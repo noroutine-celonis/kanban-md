@@ -220,9 +220,11 @@ statuses:
   - name: archived
     show_duration: false
 priorities:
+  - lowest
   - low
   - medium
   - high
+  - highest
   - critical
 defaults:
   status: backlog
@@ -1067,6 +1069,9 @@ guidance, not one of the workflow skills installed into users' projects.
 ```bash
 # Build
 make build
+
+# Build and install to GOPATH/bin
+make install
 
 # Run all tests (unit + e2e)
 make test

@@ -75,7 +75,17 @@ func TestE2E_TUI_PriorityKeyboardFlow(t *testing.T) {
 
 	session.pressKeys("+")
 	waitForTask(t, kanbanDir, 1, func(tk taskJSON) bool {
+		return tk.Priority == "highest"
+	})
+
+	session.pressKeys("+")
+	waitForTask(t, kanbanDir, 1, func(tk taskJSON) bool {
 		return tk.Priority == "critical"
+	})
+
+	session.pressKeys("-")
+	waitForTask(t, kanbanDir, 1, func(tk taskJSON) bool {
+		return tk.Priority == "highest"
 	})
 
 	session.pressKeys("-")

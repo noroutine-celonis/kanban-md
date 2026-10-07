@@ -41,9 +41,11 @@ var (
 	}
 
 	DefaultPriorities = []string{
+		"lowest",
 		"low",
 		"medium",
 		"high",
+		"highest",
 		"critical",
 	}
 
