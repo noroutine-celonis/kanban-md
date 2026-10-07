@@ -16,6 +16,12 @@ import (
 type TaskViewOptions struct {
 	CompactFields []string
 	PropertyKeys  []string
+	// HideClaimed omits the CLAIMED column from table output. It has no
+	// effect on compact or JSON output.
+	HideClaimed bool
+	// HideDue omits the DUE column from table output. It has no effect on
+	// compact or JSON output.
+	HideDue bool
 }
 
 const (
