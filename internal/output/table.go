@@ -61,12 +61,14 @@ func isSafeHTTPSURL(s string) bool {
 	return true
 }
 
-// ansiHyperlink wraps text in an OSC-8 terminal hyperlink escape sequence.
-// Call this before width-based padding, so the padding spaces land outside
-// the link and only the title text itself is clickable; lipgloss.Width
-// correctly measures through the escape bytes either way.
-func ansiHyperlink(url, text string) string {
-	return "\x1b]8;;" + url + "\x07" + text + "\x1b]8;;\x07"
+// ansiHyperlink wraps text in an OSC-8 terminal hyperlink escape sequence,
+// tagged with a per-task id so terminals that group hover/click highlighting
+// by (id, url) don't merge unrelated rows that happen to share a URL. Call
+// this before width-based padding, so the padding spaces land outside the
+// link and only the title text itself is clickable; lipgloss.Width correctly
+// measures through the escape bytes either way.
+func ansiHyperlink(id, url, text string) string {
+	return "\x1b]8;id=" + id + ";" + url + "\x07" + text + "\x1b]8;;\x07"
 }
 
 var (
@@ -172,7 +174,7 @@ func tableDataRow(t *task.Task, w tableColumnWidths, opts TaskViewOptions) []str
 	}
 	if opts.Href && hyperlinksEnabled {
 		if href := taskHref(t); href != "" {
-			title = ansiHyperlink(href, title)
+			title = ansiHyperlink("task-"+strconv.Itoa(t.ID), href, title)
 		}
 	}
 	titleCell := padRight(title, w.title)

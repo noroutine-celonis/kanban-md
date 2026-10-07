@@ -522,7 +522,7 @@ func TestListHrefFlag(t *testing.T) {
 	if r.exitCode != 0 {
 		t.Fatalf("list --href failed (exit %d): %s", r.exitCode, r.stderr)
 	}
-	if !strings.Contains(r.stdout, "\x1b]8;;https://example.com/explicit\x07") {
+	if !strings.Contains(r.stdout, "\x1b]8;id=task-2;https://example.com/explicit\x07") {
 		t.Errorf("list --href output should hyperlink the task with an explicit href property, got:\n%q", r.stdout)
 	}
 }
@@ -553,7 +553,7 @@ func TestListHrefEnvVar(t *testing.T) {
 	if r.exitCode != 0 {
 		t.Fatalf("env-gated list failed (exit %d): %s", r.exitCode, r.stderr)
 	}
-	if !strings.Contains(r.stdout, "\x1b]8;;https://example.com/explicit\x07") {
+	if !strings.Contains(r.stdout, "\x1b]8;id=task-1;https://example.com/explicit\x07") {
 		t.Errorf("KANBAN_HREF should enable hyperlinks by default, got:\n%q", r.stdout)
 	}
 

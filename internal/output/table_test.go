@@ -200,9 +200,36 @@ func TestTaskTableHrefExcludesTrailingPadding(t *testing.T) {
 	out := buf.String()
 	// The link terminator must immediately follow the title text; any padding
 	// spaces belong after it, outside the clickable span.
-	wantLink := "\x1b]8;;https://example.com/explicit\x07Short\x1b]8;;\x07"
+	wantLink := "\x1b]8;id=task-1;https://example.com/explicit\x07Short\x1b]8;;\x07"
 	if !strings.Contains(out, wantLink) {
 		t.Errorf("expected hyperlink span to end right after the title text, got:\n%q", out)
+	}
+}
+
+func TestTaskTableHrefDistinctIDsForSameURL(t *testing.T) {
+	disableColorForTest(t)
+	hyperlinksEnabled = true
+
+	now := time.Now()
+	tk1 := &task.Task{ID: 1, Title: "First", Status: "backlog", Priority: "medium", Created: now, Updated: now}
+	tk2 := &task.Task{ID: 2, Title: "Second", Status: "backlog", Priority: "medium", Created: now, Updated: now}
+	setHref(t, tk1, `"https://example.com/shared"`)
+	setHref(t, tk2, `"https://example.com/shared"`)
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, []*task.Task{tk1, tk2}, TaskViewOptions{Href: true})
+
+	out := buf.String()
+	// Terminals (notably kitty) group hover/click highlighting by (id, url);
+	// without distinct ids, two rows sharing a URL would be treated as one
+	// link spanning both rows.
+	want1 := "\x1b]8;id=task-1;https://example.com/shared\x07First"
+	want2 := "\x1b]8;id=task-2;https://example.com/shared\x07Second"
+	if !strings.Contains(out, want1) {
+		t.Errorf("expected task 1's hyperlink to carry id=task-1, got:\n%q", out)
+	}
+	if !strings.Contains(out, want2) {
+		t.Errorf("expected task 2's hyperlink to carry id=task-2, got:\n%q", out)
 	}
 }
 
@@ -221,7 +248,7 @@ func TestTaskTableHrefUsesExplicitPropertyOverBody(t *testing.T) {
 	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
 
 	out := buf.String()
-	wantLink := "\x1b]8;;https://example.com/explicit\x07"
+	wantLink := "\x1b]8;id=task-1;https://example.com/explicit\x07"
 	if !strings.Contains(out, wantLink) {
 		t.Errorf("expected hyperlink to explicit href property, got:\n%q", out)
 	}
@@ -248,7 +275,7 @@ func TestTaskTableHrefRejectsNonHTTPSProperty(t *testing.T) {
 	if strings.Contains(out, "insecure") {
 		t.Errorf("http:// href property should never be used:\n%q", out)
 	}
-	wantLink := "\x1b]8;;https://example.com/body-link\x07"
+	wantLink := "\x1b]8;id=task-1;https://example.com/body-link\x07"
 	if !strings.Contains(out, wantLink) {
 		t.Errorf("expected fallback to body link when href property is not https, got:\n%q", out)
 	}
@@ -292,7 +319,7 @@ func TestTaskTableHrefFallsBackToFirstBodyURL(t *testing.T) {
 	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
 
 	out := buf.String()
-	wantLink := "\x1b]8;;https://example.com/first\x07"
+	wantLink := "\x1b]8;id=task-1;https://example.com/first\x07"
 	if !strings.Contains(out, wantLink) {
 		t.Errorf("expected hyperlink to first body URL, got:\n%q", out)
 	}
@@ -316,7 +343,7 @@ func TestTaskTableHrefPrefersMarkdownLinkTarget(t *testing.T) {
 	TaskTableWithOptions(&buf, []*task.Task{tk}, TaskViewOptions{Href: true})
 
 	out := buf.String()
-	wantLink := "\x1b]8;;https://example.com/docs\x07"
+	wantLink := "\x1b]8;id=task-1;https://example.com/docs\x07"
 	if !strings.Contains(out, wantLink) {
 		t.Errorf("expected hyperlink to markdown link target, got:\n%q", out)
 	}

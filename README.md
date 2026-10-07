@@ -854,6 +854,11 @@ hyperlink in table output, resolving the link target in this order:
 Set `--set-property href=false` to opt a task out of hyperlinking entirely,
 including the body fallback.
 
+Each hyperlink carries a per-task OSC-8 `id` (`task-<ID>`). Some terminals
+(kitty, notably) group hover/click highlighting by `(id, url)`; without a
+distinct id, two tasks sharing the same URL would be highlighted as a single
+combined link.
+
 `http://` targets, in either the `href` property or the body, are never
 linked. This follows `--no-color`/`NO_COLOR`: disabling color also disables
 hyperlinks, and has no effect on `--json` or `--compact` output. Only the
