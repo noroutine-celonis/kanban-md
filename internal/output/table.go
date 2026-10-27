@@ -83,6 +83,8 @@ var (
 		"review":      lipgloss.NewStyle().Foreground(lipgloss.Color("62")),
 		"done":        lipgloss.NewStyle().Foreground(lipgloss.Color("34")),
 		"archived":    lipgloss.NewStyle().Foreground(lipgloss.Color("241")),
+		"act":         lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+		"hold":        lipgloss.NewStyle().Foreground(lipgloss.Color("67")),
 	}
 
 	// Priority colors matching TUI priority palette.
