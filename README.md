@@ -1070,6 +1070,9 @@ guidance, not one of the workflow skills installed into users' projects.
 # Build
 make build
 
+# Build and install to GOPATH/bin
+make install
+
 # Run all tests (unit + e2e)
 make test
 

@@ -39,6 +39,10 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 build: ## go build
 	go build -ldflags "-X github.com/antopolskiy/kanban-md/cmd.version=$(VERSION)" -o dist/kanban-md ./cmd/kanban-md
 
+.PHONY: install
+install: ## go install to GOPATH/bin
+	go install -ldflags "-X github.com/antopolskiy/kanban-md/cmd.version=$(VERSION)" ./cmd/kanban-md
+
 .PHONY: lint
 lint: ## golangci-lint (read-only)
 	golangci-lint run
