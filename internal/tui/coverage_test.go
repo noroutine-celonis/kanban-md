@@ -165,7 +165,8 @@ func TestBoard_LowerPriorityAtLowest(t *testing.T) {
 	b = sendKey(b, "l")
 	b = sendKey(b, "l")
 
-	// Task D should be here. Lower priority.
+	// Task D should be here. Lower priority twice: low -> lowest -> error.
+	b = sendKey(b, "-")
 	b = sendKey(b, "-")
 	v := b.View()
 	// Should show error about already at lowest priority.
@@ -185,10 +186,11 @@ func TestBoard_RaisePriorityAtHighest(t *testing.T) {
 	b = sendKey(b, "l")
 	// Default config has review between in-progress and done, but in-progress has Task C.
 
-	// Task C is high. Config default priorities: low, medium, high, critical.
-	// Raise once to "critical".
+	// Task C is high. Config default priorities: low, medium, high, highest, critical.
+	// Raise twice to reach "critical".
 	b = sendKey(b, "+")
-	// Raise again — should be at highest.
+	b = sendKey(b, "+")
+	// Raise again — should already be at the max.
 	b = sendKey(b, "+")
 	v := b.View()
 	if !containsStr(v, "highest") {

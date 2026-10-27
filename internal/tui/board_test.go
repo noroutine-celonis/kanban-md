@@ -1726,7 +1726,7 @@ func TestBoard_MovePrevEmptyColumn(t *testing.T) {
 func TestBoard_RaisePriority(t *testing.T) {
 	b, cfg := setupTestBoard(t)
 
-	// Task A (ID 1) starts at "high" priority. Press + to raise to "critical".
+	// Task A (ID 1) starts at "high" priority. Press + to raise to "highest".
 	b = sendKey(b, "+")
 
 	path, err := task.FindByID(cfg.TasksPath(), 1)
@@ -1737,8 +1737,8 @@ func TestBoard_RaisePriority(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading task: %v", err)
 	}
-	if tk.Priority != priorityCritical {
-		t.Errorf("expected priority 'critical', got %q", tk.Priority)
+	if tk.Priority != "highest" {
+		t.Errorf("expected priority 'highest', got %q", tk.Priority)
 	}
 
 	_ = b.View()
@@ -1807,7 +1807,7 @@ func TestBoard_LowerPriority(t *testing.T) {
 func TestBoard_RaisePriorityWithEquals(t *testing.T) {
 	b, cfg := setupTestBoard(t)
 
-	// Task A (ID 1) starts at "high" priority. Press = to raise to "critical".
+	// Task A (ID 1) starts at "high" priority. Press = to raise to "highest".
 	b = sendKey(b, "=")
 
 	path, err := task.FindByID(cfg.TasksPath(), 1)
@@ -1818,8 +1818,8 @@ func TestBoard_RaisePriorityWithEquals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading task: %v", err)
 	}
-	if tk.Priority != priorityCritical {
-		t.Errorf("expected priority 'critical', got %q", tk.Priority)
+	if tk.Priority != "highest" {
+		t.Errorf("expected priority 'highest', got %q", tk.Priority)
 	}
 
 	_ = b.View()
@@ -1849,7 +1849,8 @@ func TestBoard_LowerPriorityWithUnderscore(t *testing.T) {
 func TestBoard_RaisePriorityAtMax(t *testing.T) {
 	b, cfg := setupTestBoard(t)
 
-	// Raise Task A to critical first.
+	// Raise Task A to critical first (high -> highest -> critical).
+	b = sendKey(b, "+")
 	b = sendKey(b, "+")
 
 	// Now try to raise again — should show error.
@@ -1876,11 +1877,12 @@ func TestBoard_RaisePriorityAtMax(t *testing.T) {
 func TestBoard_LowerPriorityAtMin(t *testing.T) {
 	b, _ := setupTestBoard(t)
 
-	// Lower Task A from "high" → "medium" → "low".
+	// Lower Task A from "high" → "medium" → "low" → "lowest".
+	b = sendKey(b, "-")
 	b = sendKey(b, "-")
 	b = sendKey(b, "-")
 
-	// Now at "low" — try to lower again.
+	// Now at "lowest" — try to lower again.
 	b = sendKey(b, "-")
 	v := b.View()
 	if !containsStr(v, "already at the lowest priority") {

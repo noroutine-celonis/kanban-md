@@ -119,7 +119,7 @@ func TestEdit_FullWizardSavesUpdatedFields(t *testing.T) {
 	b = typeText(b, "Updated body")
 
 	b = sendSpecialKey(b, tea.KeyTab)
-	b = sendKey(b, "j") // high -> critical
+	b = sendKey(b, "j") // high -> highest
 
 	b = sendSpecialKey(b, tea.KeyTab)
 	b = typeText(b, "ui,editing")
@@ -140,8 +140,8 @@ func TestEdit_FullWizardSavesUpdatedFields(t *testing.T) {
 	if tk.Body != "Updated body\n" {
 		t.Errorf("body = %q, want %q", tk.Body, "Updated body\\n")
 	}
-	if tk.Priority != "critical" {
-		t.Errorf("priority = %q, want %q", tk.Priority, "critical")
+	if tk.Priority != "highest" {
+		t.Errorf("priority = %q, want %q", tk.Priority, "highest")
 	}
 	if len(tk.Tags) != 2 || tk.Tags[0] != "ui" || tk.Tags[1] != "editing" {
 		t.Errorf("tags = %v, want [ui editing]", tk.Tags)

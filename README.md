@@ -220,9 +220,11 @@ statuses:
   - name: archived
     show_duration: false
 priorities:
+  - lowest
   - low
   - medium
   - high
+  - highest
   - critical
 defaults:
   status: backlog

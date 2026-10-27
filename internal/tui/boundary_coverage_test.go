@@ -499,7 +499,7 @@ func TestBoundary_PriorityChange_WriteError(t *testing.T) {
 // --- executePriorityChange: lower at already lowest shows error ---
 
 func TestBoundary_PriorityAlreadyLowest(t *testing.T) {
-	b := setupSingleTaskBoard(t, "Lowest task", "low")
+	b := setupSingleTaskBoard(t, "Lowest task", "lowest")
 
 	// Try to lower priority -- should show error.
 	b = sendKey(b, "-")

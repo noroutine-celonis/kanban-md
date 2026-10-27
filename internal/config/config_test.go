@@ -192,8 +192,8 @@ func TestIsTerminalStatusEmptyStatuses(t *testing.T) {
 
 func TestPriorityIndex(t *testing.T) {
 	cfg := NewDefault("Test")
-	if idx := cfg.PriorityIndex("high"); idx != 2 {
-		t.Errorf("PriorityIndex('high') = %d, want 2", idx)
+	if idx := cfg.PriorityIndex("high"); idx != 3 {
+		t.Errorf("PriorityIndex('high') = %d, want 3", idx)
 	}
 	if idx := cfg.PriorityIndex(nonexistentName); idx != -1 {
 		t.Errorf("PriorityIndex('nonexistent') = %d, want -1", idx)

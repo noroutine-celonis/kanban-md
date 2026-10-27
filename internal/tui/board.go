@@ -1460,9 +1460,11 @@ var (
 
 	priorityStyles = map[string]lipgloss.Style{
 		"critical": lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true),
+		"highest":  lipgloss.NewStyle().Foreground(lipgloss.Color("202")).Bold(true),
 		"high":     lipgloss.NewStyle().Foreground(lipgloss.Color("208")),
 		"medium":   lipgloss.NewStyle().Foreground(lipgloss.Color("226")),
-		"low":      lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
+		"low":      lipgloss.NewStyle().Foreground(lipgloss.Color("75")),
+		"lowest":   lipgloss.NewStyle().Foreground(lipgloss.Color("67")),
 	}
 
 	dimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
