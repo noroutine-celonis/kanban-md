@@ -332,6 +332,8 @@ kanban-md list [FLAGS]
 | `--property KEY=LITERAL` | | Match one exact typed scalar value; repeat to combine with AND |
 | `--show-property KEY` | | Include a selected scalar in table, compact or JSON output; repeat for multiple keys |
 | `--group-by` | | Group counts by assignee, tag, class, priority, status, or `property:KEY` |
+| `--hide-claimed-column` | false | Hide the CLAIMED column in table output (no effect on `--json` or `--compact`); defaults to true if `KANBAN_HIDE_CLAIMED_COLUMN` is set |
+| `--hide-due-column` | false | Hide the DUE column in table output (no effect on `--json` or `--compact`); defaults to true if `KANBAN_HIDE_DUE_COLUMN` is set |
 | `--sort` | id | Sort by: id, title, status, priority, created, updated, due |
 | `-r`, `--reverse` | false | Reverse sort order |
 | `-n`, `--limit` | 0 | Max results (0 = unlimited) |

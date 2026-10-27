@@ -69,6 +69,94 @@ func TestTaskTableEmptyWritesNothing(t *testing.T) {
 	}
 }
 
+func TestTaskTableShowsClaimedColumnByDefault(t *testing.T) {
+	disableColorForTest(t)
+
+	now := time.Now()
+	tasks := []*task.Task{
+		{ID: 1, Title: "Test task", Status: "backlog", Priority: "medium", ClaimedBy: "agent-1", Created: now, Updated: now},
+	}
+
+	var buf strings.Builder
+	TaskTable(&buf, tasks)
+
+	output := buf.String()
+	if !strings.Contains(output, "CLAIMED") {
+		t.Errorf("TaskTable output missing CLAIMED header:\n%s", output)
+	}
+	if !strings.Contains(output, "@agent-1") {
+		t.Errorf("TaskTable output missing claim value:\n%s", output)
+	}
+}
+
+func TestTaskTableWithOptionsHidesClaimedColumn(t *testing.T) {
+	disableColorForTest(t)
+
+	now := time.Now()
+	tasks := []*task.Task{
+		{ID: 1, Title: "Test task", Status: "backlog", Priority: "medium", ClaimedBy: "agent-1", Created: now, Updated: now},
+	}
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, tasks, TaskViewOptions{HideClaimed: true})
+
+	output := buf.String()
+	if strings.Contains(output, "CLAIMED") {
+		t.Errorf("TaskTable output should not contain CLAIMED header:\n%s", output)
+	}
+	if strings.Contains(output, "@agent-1") {
+		t.Errorf("TaskTable output should not contain claim value:\n%s", output)
+	}
+	if !strings.Contains(output, "Test task") {
+		t.Errorf("TaskTable output missing task title:\n%s", output)
+	}
+}
+
+func TestTaskTableWithOptionsHidesDueColumn(t *testing.T) {
+	disableColorForTest(t)
+
+	now := time.Now()
+	due := date.New(2025, 6, 15)
+	tasks := []*task.Task{
+		{ID: 1, Title: "Test task", Status: "backlog", Priority: "medium", Due: &due, Created: now, Updated: now},
+	}
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, tasks, TaskViewOptions{HideDue: true})
+
+	output := buf.String()
+	if strings.Contains(output, "DUE") {
+		t.Errorf("TaskTable output should not contain DUE header:\n%s", output)
+	}
+	if strings.Contains(output, due.String()) {
+		t.Errorf("TaskTable output should not contain due value:\n%s", output)
+	}
+	if !strings.Contains(output, "Test task") {
+		t.Errorf("TaskTable output missing task title:\n%s", output)
+	}
+}
+
+func TestTaskTableWithOptionsHidesBothClaimedAndDueColumns(t *testing.T) {
+	disableColorForTest(t)
+
+	now := time.Now()
+	due := date.New(2025, 6, 15)
+	tasks := []*task.Task{
+		{ID: 1, Title: "Test task", Status: "backlog", Priority: "medium", ClaimedBy: "agent-1", Due: &due, Created: now, Updated: now},
+	}
+
+	var buf strings.Builder
+	TaskTableWithOptions(&buf, tasks, TaskViewOptions{HideClaimed: true, HideDue: true})
+
+	output := buf.String()
+	if strings.Contains(output, "CLAIMED") || strings.Contains(output, "DUE") {
+		t.Errorf("TaskTable output should not contain CLAIMED or DUE header:\n%s", output)
+	}
+	if !strings.Contains(output, "Test task") {
+		t.Errorf("TaskTable output missing task title:\n%s", output)
+	}
+}
+
 func TestMessagefWritesToWriter(t *testing.T) {
 	var buf strings.Builder
 	Messagef(&buf, "hello %s", "world")

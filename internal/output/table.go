@@ -54,15 +54,22 @@ func DisableColor() {
 
 // TaskTable renders a list of tasks as a formatted table.
 func TaskTable(w io.Writer, tasks []*task.Task) {
-	TaskTableWithProperties(w, tasks, nil)
+	TaskTableWithOptions(w, tasks, TaskViewOptions{})
 }
 
 // TaskTableWithProperties adds explicitly requested properties to task rows.
 func TaskTableWithProperties(w io.Writer, tasks []*task.Task, keys []string) {
+	TaskTableWithOptions(w, tasks, TaskViewOptions{PropertyKeys: keys})
+}
+
+// TaskTableWithOptions renders a list of tasks as a formatted table, honoring
+// selected properties and column visibility.
+func TaskTableWithOptions(w io.Writer, tasks []*task.Task, opts TaskViewOptions) {
 	if len(tasks) == 0 {
 		fmt.Fprintln(os.Stderr, "No tasks found.")
 		return
 	}
+	keys := opts.PropertyKeys
 
 	// Calculate column widths.
 	const pad = 2
@@ -78,9 +85,20 @@ func TaskTableWithProperties(w io.Writer, tasks []*task.Task, keys []string) {
 
 	// Print header.
 	propertyWidths := tablePropertyWidths(tasks, keys)
-	header := fmt.Sprintf("%-*s %-*s %-*s %-*s %-*s %-*s %-*s",
-		idW, "ID", statusW, "STATUS", prioW, "PRIORITY",
-		titleW, "TITLE", claimW, "CLAIMED", tagsW, "TAGS", dueW, "DUE")
+	headerCells := []string{
+		fmt.Sprintf("%-*s", idW, "ID"),
+		fmt.Sprintf("%-*s", statusW, "STATUS"),
+		fmt.Sprintf("%-*s", prioW, "PRIORITY"),
+		fmt.Sprintf("%-*s", titleW, "TITLE"),
+	}
+	if !opts.HideClaimed {
+		headerCells = append(headerCells, fmt.Sprintf("%-*s", claimW, "CLAIMED"))
+	}
+	headerCells = append(headerCells, fmt.Sprintf("%-*s", tagsW, "TAGS"))
+	if !opts.HideDue {
+		headerCells = append(headerCells, fmt.Sprintf("%-*s", dueW, "DUE"))
+	}
+	header := strings.Join(headerCells, " ")
 	header += tablePropertySuffix(keys, propertyWidths)
 	fmt.Fprintln(w, headerStyle.Render(strings.TrimRight(header, " ")))
 
@@ -90,12 +108,6 @@ func TaskTableWithProperties(w io.Writer, tasks []*task.Task, keys []string) {
 		const maxTitle = 48
 		if len(title) > maxTitle {
 			title = title[:maxTitle-3] + "..."
-		}
-		claim := claimDisplay(t)
-		if claim == "" {
-			claim = dimStyle.Render("--")
-		} else {
-			claim = claimStyle.Render(claim)
 		}
 		tags := strings.Join(t.Tags, ",")
 		if tags == "" {
@@ -109,18 +121,29 @@ func TaskTableWithProperties(w io.Writer, tasks []*task.Task, keys []string) {
 		} else {
 			due = dimStyle.Render(due)
 		}
-		if len(keys) > 0 {
-			due = padRight(due, dueW)
-		}
+		due = padRight(due, dueW)
 
-		row := fmt.Sprintf("%-*d %s %s %s %s %s %s",
-			idW, t.ID,
+		rowCells := []string{
+			fmt.Sprintf("%-*d", idW, t.ID),
 			padRight(styledValue(t.Status, statusStyles), statusW),
 			padRight(styledValue(t.Priority, priorityStyles), prioW),
 			padRight(title, titleW),
-			padRight(claim, claimW),
-			padRight(tags, tagsW),
-			due)
+		}
+		if !opts.HideClaimed {
+			claim := claimDisplay(t)
+			if claim == "" {
+				claim = dimStyle.Render("--")
+			} else {
+				claim = claimStyle.Render(claim)
+			}
+			rowCells = append(rowCells, padRight(claim, claimW))
+		}
+		rowCells = append(rowCells, padRight(tags, tagsW))
+		if !opts.HideDue {
+			rowCells = append(rowCells, due)
+		}
+
+		row := strings.Join(rowCells, " ")
 		row += tablePropertySuffix(tablePropertyCells(t, keys), propertyWidths)
 		fmt.Fprintln(w, strings.TrimRight(row, " "))
 	}

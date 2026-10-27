@@ -432,3 +432,75 @@ func TestListCompactOutput(t *testing.T) {
 		t.Error("compact list output should contain task title")
 	}
 }
+
+func TestListHideClaimedColumn(t *testing.T) {
+	kanbanDir := initBoard(t)
+	mustCreateTask(t, kanbanDir, "Table task")
+
+	r := runKanban(t, kanbanDir, "--table", "list")
+	if r.exitCode != 0 {
+		t.Fatalf("list failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "CLAIMED") {
+		t.Error("list table output should contain CLAIMED column by default")
+	}
+
+	r = runKanban(t, kanbanDir, "--table", "list", "--hide-claimed-column")
+	if r.exitCode != 0 {
+		t.Fatalf("list --hide-claimed-column failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if strings.Contains(r.stdout, "CLAIMED") {
+		t.Error("list --hide-claimed-column output should not contain CLAIMED column")
+	}
+	if !strings.Contains(r.stdout, "Table task") {
+		t.Error("list --hide-claimed-column output should still contain task title")
+	}
+}
+
+func TestListHideDueColumn(t *testing.T) {
+	kanbanDir := initBoard(t)
+	mustCreateTask(t, kanbanDir, "Table task")
+
+	r := runKanban(t, kanbanDir, "--table", "list")
+	if r.exitCode != 0 {
+		t.Fatalf("list failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "DUE") {
+		t.Error("list table output should contain DUE column by default")
+	}
+
+	r = runKanban(t, kanbanDir, "--table", "list", "--hide-due-column")
+	if r.exitCode != 0 {
+		t.Fatalf("list --hide-due-column failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if strings.Contains(r.stdout, "DUE") {
+		t.Error("list --hide-due-column output should not contain DUE column")
+	}
+	if !strings.Contains(r.stdout, "Table task") {
+		t.Error("list --hide-due-column output should still contain task title")
+	}
+}
+
+func TestListHideClaimedAndDueColumnsEnvVars(t *testing.T) {
+	kanbanDir := initBoard(t)
+	mustCreateTask(t, kanbanDir, "Env hidden columns task")
+
+	// Env vars set the default when the flag is not explicitly passed.
+	r := runKanbanEnv(t, kanbanDir, []string{"KANBAN_HIDE_CLAIMED_COLUMN=1", "KANBAN_HIDE_DUE_COLUMN=1"}, "--table", "list")
+	if r.exitCode != 0 {
+		t.Fatalf("env-gated list failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if strings.Contains(r.stdout, "CLAIMED") || strings.Contains(r.stdout, "DUE") {
+		t.Errorf("env vars should hide both columns, got:\n%s", r.stdout)
+	}
+
+	// An explicit flag overrides the environment default.
+	r = runKanbanEnv(t, kanbanDir, []string{"KANBAN_HIDE_CLAIMED_COLUMN=1", "KANBAN_HIDE_DUE_COLUMN=1"},
+		"--table", "list", "--hide-claimed-column=false", "--hide-due-column=false")
+	if r.exitCode != 0 {
+		t.Fatalf("env-gated list with explicit override failed (exit %d): %s", r.exitCode, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "CLAIMED") || !strings.Contains(r.stdout, "DUE") {
+		t.Errorf("explicit flags should override env vars and show both columns, got:\n%s", r.stdout)
+	}
+}

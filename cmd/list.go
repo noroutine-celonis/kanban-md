@@ -40,6 +40,8 @@ func init() {
 	listCmd.Flags().StringP("search", "s", "", "search tasks by title, body, or tags (case-insensitive)")
 	listCmd.Flags().Bool("archived", false, "show only archived tasks")
 	listCmd.Flags().String("group-by", "", "group results by field ("+strings.Join(board.ValidGroupByFields(), ", ")+", property:KEY)")
+	listCmd.Flags().Bool("hide-claimed-column", false, "hide the CLAIMED column in table output (no effect on --json or --compact); defaults to true if KANBAN_HIDE_CLAIMED_COLUMN is set")
+	listCmd.Flags().Bool("hide-due-column", false, "hide the DUE column in table output (no effect on --json or --compact); defaults to true if KANBAN_HIDE_DUE_COLUMN is set")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -135,7 +137,20 @@ func runList(cmd *cobra.Command, _ []string) error {
 		return outputGroupedList(tasks, groupBy, cfg)
 	}
 
-	return outputTaskListWithOptions(tasks, cfg, propertyOptions.keys)
+	hideClaimedColumn := boolFlagOrEnv(cmd, "hide-claimed-column", "KANBAN_HIDE_CLAIMED_COLUMN")
+	hideDueColumn := boolFlagOrEnv(cmd, "hide-due-column", "KANBAN_HIDE_DUE_COLUMN")
+	return outputTaskListWithOptions(tasks, cfg, propertyOptions.keys, hideClaimedColumn, hideDueColumn)
+}
+
+// boolFlagOrEnv returns the flag's value if explicitly set, otherwise true if
+// envVar is set to a non-empty value, matching the --no-color/NO_COLOR
+// precedent: an explicit flag always wins over the environment default.
+func boolFlagOrEnv(cmd *cobra.Command, flagName, envVar string) bool {
+	if cmd.Flags().Changed(flagName) {
+		v, _ := cmd.Flags().GetBool(flagName)
+		return v
+	}
+	return os.Getenv(envVar) != ""
 }
 
 func outputGroupedList(tasks []*task.Task, groupBy string, cfg *config.Config) error {
