@@ -129,7 +129,7 @@ func humanPropertyKeys(requested, fields []string, childSort string) []string {
 	return keys
 }
 
-func outputTaskListWithOptions(tasks []*task.Task, cfg *config.Config, keys []string, hideClaimedColumn, hideDueColumn bool) error {
+func outputTaskListWithOptions(tasks []*task.Task, cfg *config.Config, keys []string, hideClaimedColumn, hideDueColumn, href bool) error {
 	if outputFormat() == output.FormatJSON {
 		if len(keys) == 0 {
 			return outputTaskList(tasks)
@@ -146,7 +146,7 @@ func outputTaskListWithOptions(tasks []*task.Task, cfg *config.Config, keys []st
 		output.TaskCompactWithOptions(os.Stdout, tasks, output.TaskViewOptions{CompactFields: cfg.CompactFields(), PropertyKeys: keys})
 		return nil
 	}
-	output.TaskTableWithOptions(os.Stdout, tasks, output.TaskViewOptions{PropertyKeys: keys, HideClaimed: hideClaimedColumn, HideDue: hideDueColumn})
+	output.TaskTableWithOptions(os.Stdout, tasks, output.TaskViewOptions{PropertyKeys: keys, HideClaimed: hideClaimedColumn, HideDue: hideDueColumn, Href: href})
 	return nil
 }
 

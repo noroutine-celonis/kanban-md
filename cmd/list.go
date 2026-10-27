@@ -42,6 +42,7 @@ func init() {
 	listCmd.Flags().String("group-by", "", "group results by field ("+strings.Join(board.ValidGroupByFields(), ", ")+", property:KEY)")
 	listCmd.Flags().Bool("hide-claimed-column", false, "hide the CLAIMED column in table output (no effect on --json or --compact); defaults to true if KANBAN_HIDE_CLAIMED_COLUMN is set")
 	listCmd.Flags().Bool("hide-due-column", false, "hide the DUE column in table output (no effect on --json or --compact); defaults to true if KANBAN_HIDE_DUE_COLUMN is set")
+	listCmd.Flags().Bool("href", false, "render TITLE as an OSC-8 terminal hyperlink using the task's https:// \"href\" property or the first https:// link in its body (no effect on --json or --compact); defaults to true if KANBAN_HREF is set")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -139,7 +140,8 @@ func runList(cmd *cobra.Command, _ []string) error {
 
 	hideClaimedColumn := boolFlagOrEnv(cmd, "hide-claimed-column", "KANBAN_HIDE_CLAIMED_COLUMN")
 	hideDueColumn := boolFlagOrEnv(cmd, "hide-due-column", "KANBAN_HIDE_DUE_COLUMN")
-	return outputTaskListWithOptions(tasks, cfg, propertyOptions.keys, hideClaimedColumn, hideDueColumn)
+	href := boolFlagOrEnv(cmd, "href", "KANBAN_HREF")
+	return outputTaskListWithOptions(tasks, cfg, propertyOptions.keys, hideClaimedColumn, hideDueColumn, href)
 }
 
 // boolFlagOrEnv returns the flag's value if explicitly set, otherwise true if
