@@ -14,6 +14,35 @@
   - Use bullets when they improve readability.
   ```
 
+- End commits and PR descriptions with a trailer instead of the usual
+  `Co-Authored-By` line (the human merging is the one vouching for
+  AI-written code, not the model vouching for itself). Pick one of the two
+  vibes below, then roll per commit: pick one name from that list at
+  random, but 10% of the time invent a new name in the same vibe instead
+  of using the list.
+
+  Probabilistic-skim vibe (reviewed fast, not thoroughly):
+
+  ```text
+  Eyeballed-By: <human name> <human email>
+  Skim-Reviewed-By: <human name> <human email>
+  Spot-Checked-By: <human name> <human email>
+  Glanced-At-By: <human name> <human email>
+  Scroll-Sampled-By: <human name> <human email>
+  Vibes-Approved-By: <human name> <human email>
+  ```
+
+  Blind-trust vibe (merged on faith, not inspection):
+
+  ```text
+  Blindly-Trusted-By: <human name> <human email>
+  Faith-Merged-By: <human name> <human email>
+  Trusted-On-Faith-By: <human name> <human email>
+  Rubber-Stamped-By: <human name> <human email>
+  Approved-Sight-Unseen-By: <human name> <human email>
+  Merged-On-Vibes-By: <human name> <human email>
+  ```
+
 - Update `README.md` whenever user-facing behavior changes, including commands,
   flags, defaults, installation methods, or workflows.
 - Document research in `docs/research/YYYY-MM-DD-<description>.md`. When
